@@ -1,0 +1,2098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Timesheet System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .settings {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .settings-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+        }
+
+        .settings-card h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+
+        .rate-input {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .rate-input label {
+            font-weight: 600;
+            color: #2c3e50;
+            min-width: 120px;
+        }
+
+        .rate-input input, .rate-input select {
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+            flex: 1;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .timesheet-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .timesheet-table th {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            padding: 15px 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .timesheet-table td {
+            padding: 12px 6px;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 14px;
+        }
+
+        .timesheet-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .date-cell {
+            font-weight: 600;
+            color: #2c3e50;
+            background: #ecf0f1 !important;
+            min-width: 120px;
+        }
+
+        .time-input {
+            width: 70px;
+            padding: 6px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        .time-input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+
+        .time-input.error {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2);
+        }
+
+        .clickable-category {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            font-size: 11px;
+            border: none;
+            margin: 2px;
+        }
+
+        .clickable-category:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(231, 76, 60, 0.4);
+        }
+
+        .clickable-category.vacation {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        }
+
+        .clickable-category.vacation:hover {
+            box-shadow: 0 3px 10px rgba(243, 156, 18, 0.4);
+        }
+
+        .clickable-category.unpaid {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+        }
+
+        .clickable-category.unpaid:hover {
+            box-shadow: 0 3px 10px rgba(149, 165, 166, 0.4);
+        }
+
+        .hours-selector {
+            display: none;
+            margin-top: 8px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+
+        .hours-selector.active {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hours-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hours-input-group label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 12px;
+        }
+
+        .hours-input-group input {
+            width: 60px;
+            padding: 6px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .summary-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid #3498db;
+            text-align: center;
+        }
+
+        .summary-card h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .summary-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 5px;
+        }
+
+        .summary-label {
+            color: #7f8c8d;
+            font-size: 0.8em;
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e9ecef;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            color: white;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(243, 156, 18, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            color: white;
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(108, 117, 125, 0.4);
+        }
+
+        .date-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .date-input-group label {
+            font-weight: 600;
+            color: #2c3e50;
+            min-width: 80px;
+        }
+
+        .date-input-group input[type="date"] {
+            padding: 8px 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .timesheets-selector {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+        }
+
+        .timesheets-selector h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+
+        .timesheet-tabs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .timesheet-tab {
+            padding: 12px 16px;
+            border: 2px solid #dee2e6;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            color: #495057;
+            text-align: center;
+        }
+
+        .timesheet-tab:hover {
+            border-color: #3498db;
+            color: #3498db;
+        }
+
+        .timesheet-tab.active {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border-color: #2980b9;
+        }
+
+        .current-timesheet-info {
+            color: #6c757d;
+            font-size: 0.9em;
+            font-style: italic;
+            text-align: center;
+        }
+
+        .url-display {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #3498db;
+        }
+
+        .url-display h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .url-display input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .auto-save-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #27ae60;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+
+        .auto-save-indicator.show {
+            opacity: 1;
+        }
+
+        .loading-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            z-index: 2000;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #dc3545;
+            display: none;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #28a745;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .settings {
+                padding: 20px;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .timesheet-table {
+                font-size: 12px;
+                overflow-x: auto;
+                display: block;
+                white-space: nowrap;
+            }
+            
+            .timesheet-table thead,
+            .timesheet-table tbody {
+                display: table;
+                width: 100%;
+                table-layout: fixed;
+            }
+            
+            .time-input {
+                width: 55px;
+                font-size: 11px;
+                padding: 4px;
+            }
+            
+            .actions {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="auto-save-indicator" id="autoSaveIndicator">✓ Auto-saved</div>
+    <div class="loading-indicator" id="loadingIndicator">Loading...</div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>Enhanced Employee Timesheet System</h1>
+            <p>Advanced timesheet tracking with validation and enhanced features</p>
+        </div>
+
+        <div class="settings">
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+            
+            <div class="settings-grid">
+                <div class="settings-card">
+                    <h3>Employee Settings</h3>
+                    <div class="rate-input">
+                        <label for="hourlyRate">Hourly Rate ($):</label>
+                        <input type="number" id="hourlyRate" placeholder="25.00" step="0.01" min="0" value="25.00">
+                    </div>
+                    <div class="rate-input">
+                        <label for="overtimeRate">Overtime Multiplier:</label>
+                        <select id="overtimeRate">
+                            <option value="1.5" selected>1.5x (Time and a half)</option>
+                            <option value="2">2x (Double time)</option>
+                            <option value="1">1x (No overtime)</option>
+                        </select>
+                    </div>
+                    <div class="rate-input">
+                        <label for="overtimeThreshold">Overtime After:</label>
+                        <select id="overtimeThreshold">
+                            <option value="40" selected>40 hours/week</option>
+                            <option value="8">8 hours/day</option>
+                            <option value="0">No overtime</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <h3>Date Range</h3>
+                    <div class="date-input-group">
+                        <label for="startDate">Start Date:</label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" onclick="setCurrentWeek()">Current Week</button>
+                        <button class="btn btn-secondary" onclick="setNextWeek()">Next Week</button>
+                        <button class="btn btn-secondary" onclick="regenerateTimesheet()">Update</button>
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <h3>Display Options</h3>
+                    <div class="rate-input">
+                        <label for="timeFormat">Time Format:</label>
+                        <select id="timeFormat">
+                            <option value="24" selected>24-hour (15:30)</option>
+                            <option value="12">12-hour (3:30 PM)</option>
+                        </select>
+                    </div>
+                    <div class="rate-input">
+                        <label for="roundingRule">Time Rounding:</label>
+                        <select id="roundingRule">
+                            <option value="none" selected>No rounding</option>
+                            <option value="15">Round to 15 minutes</option>
+                            <option value="30">Round to 30 minutes</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="timesheets-selector">
+                <h3>Employee Selection</h3>
+                <div class="timesheet-tabs">
+                    <button class="timesheet-tab active" data-sheet="1" onclick="switchTimesheet(1)">Anastosia</button>
+                    <button class="timesheet-tab" data-sheet="2" onclick="switchTimesheet(2)">Ben</button>
+                    <button class="timesheet-tab" data-sheet="3" onclick="switchTimesheet(3)">Brad</button>
+                    <button class="timesheet-tab" data-sheet="4" onclick="switchTimesheet(4)">Bryce</button>
+                    <button class="timesheet-tab" data-sheet="5" onclick="switchTimesheet(5)">Cherish</button>
+                    <button class="timesheet-tab" data-sheet="6" onclick="switchTimesheet(6)">Logan</button>
+                    <button class="timesheet-tab" data-sheet="7" onclick="switchTimesheet(7)">Rachael</button>
+                </div>
+                <p class="current-timesheet-info">Currently viewing: <span id="currentTimesheetName">Anastosia</span></p>
+            </div>
+            
+            <div class="url-display" id="urlDisplay" style="display: none;">
+                <h4>Secure Employee Link:</h4>
+                <input type="text" id="uniqueUrl" readonly onclick="this.select()">
+                <p style="margin-top: 10px; color: #7f8c8d; font-size: 0.9em;">Share this link with the employee for secure access</p>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <table class="timesheet-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Start</th>
+                        <th>Lunch Start</th>
+                        <th>Lunch End</th>
+                        <th>End</th>
+                        <th>Sick</th>
+                        <th>Vacation</th>
+                        <th>Unpaid</th>
+                        <th>Regular</th>
+                        <th>OT</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody id="timesheetBody">
+                    <!-- Rows will be generated by JavaScript -->
+                </tbody>
+            </table>
+
+            <div class="summary">
+                <div class="summary-card">
+                    <h3>Regular Hours</h3>
+                    <div class="summary-value" id="regularHours">0.00</div>
+                    <div class="summary-label">Standard Hours</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Overtime Hours</h3>
+                    <div class="summary-value" id="overtimeHours">0.00</div>
+                    <div class="summary-label">Above Threshold</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Sick Hours</h3>
+                    <div class="summary-value" id="sickHours">0.00</div>
+                    <div class="summary-label">Paid Time Off</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Vacation Hours</h3>
+                    <div class="summary-value" id="vacationHours">0.00</div>
+                    <div class="summary-label">Paid Time Off</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Unpaid Hours</h3>
+                    <div class="summary-value" id="unpaidHours">0.00</div>
+                    <div class="summary-label">No Pay</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Total Earnings</h3>
+                    <div class="summary-value" id="totalEarnings">$0.00</div>
+                    <div class="summary-label">Gross Pay</div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" onclick="saveData()" id="saveBtn">💾 Save Timesheet</button>
+                <button class="btn btn-success" onclick="generatePDF()" id="pdfBtn">📄 Export PDF</button>
+                <button class="btn btn-warning" onclick="generateCSV()" id="csvBtn">📊 Export CSV</button>
+                <button class="btn btn-secondary" onclick="clearAllData()" id="clearBtn">🗑️ Clear All</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global application state
+        let appState = {
+            timesheetData: {},
+            uniqueId: null,
+            currentTimesheetNumber: 1,
+            allTimesheets: {},
+            currentStartDate: null,
+            isInitialized: false,
+            employeeUniqueIds: {},
+            debugMode: true // Enable debug mode to see initialization steps
+        };
+        
+        const employeeNames = {
+            1: 'Anastosia', 2: 'Ben', 3: 'Brad', 4: 'Bryce',
+            5: 'Cherish', 6: 'Logan', 7: 'Rachael'
+        };
+
+        // Enhanced error handling and user feedback
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+                setTimeout(() => {
+                    errorDiv.style.display = 'none';
+                }, 5000);
+            }
+            console.error('App Error:', message);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            if (successDiv) {
+                successDiv.textContent = message;
+                successDiv.style.display = 'block';
+                setTimeout(() => {
+                    successDiv.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        function showLoading(show = true) {
+            const loadingDiv = document.getElementById('loadingIndicator');
+            if (loadingDiv) {
+                loadingDiv.style.display = show ? 'block' : 'none';
+            }
+        }
+
+        function disableButtons(disabled = true) {
+            const buttons = ['saveBtn', 'pdfBtn', 'csvBtn', 'clearBtn'];
+            buttons.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.disabled = disabled;
+            });
+        }
+
+        // Safe element access with error handling
+        function safeGetElement(id) {
+            const element = document.getElementById(id);
+            if (!element && appState.debugMode) {
+                console.warn(`Element with id '${id}' not found`);
+            }
+            return element;
+        }
+
+        function safeGetValue(id, defaultValue = '') {
+            const element = safeGetElement(id);
+            return element ? element.value : defaultValue;
+        }
+
+        function safeSetValue(id, value) {
+            const element = safeGetElement(id);
+            if (element) {
+                element.value = value;
+                return true;
+            }
+            return false;
+        }
+
+        // Safe storage functions that handle file:// protocol limitations
+        function safeGetFromStorage(key, defaultValue = null) {
+            try {
+                // Try memory storage first
+                if (window.timesheetStorage && window.timesheetStorage[key]) {
+                    return window.timesheetStorage[key];
+                }
+                
+                // Try sessionStorage if available
+                if (typeof Storage !== 'undefined' && window.location.protocol !== 'file:') {
+                    const stored = sessionStorage.getItem(key);
+                    return stored ? JSON.parse(stored) : defaultValue;
+                }
+                
+                return defaultValue;
+            } catch (error) {
+                if (appState.debugMode) {
+                    console.warn('Storage read failed:', error.message);
+                }
+                return defaultValue;
+            }
+        }
+
+        function safeSetToStorage(key, value) {
+            try {
+                // Always use memory storage as primary
+                window.timesheetStorage = window.timesheetStorage || {};
+                window.timesheetStorage[key] = value;
+                
+                // Try sessionStorage as backup if not file:// protocol
+                if (typeof Storage !== 'undefined' && window.location.protocol !== 'file:') {
+                    sessionStorage.setItem(key, JSON.stringify(value));
+                }
+                return true;
+            } catch (error) {
+                if (appState.debugMode) {
+                    console.warn('Storage write failed:', error.message);
+                }
+                return false;
+            }
+        }
+
+        // Enhanced unique ID generation
+        function generateUniqueId(employeeName = '') {
+            const sanitizedName = employeeName.toLowerCase().replace(/[^a-z]/g, '');
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substr(2, 9);
+            return `${sanitizedName}_${random}_${timestamp}`;
+        }
+
+        function findEmployeeByUniqueId(id) {
+            for (let employeeNum = 1; employeeNum <= 7; employeeNum++) {
+                if (appState.employeeUniqueIds[employeeNum] === id) {
+                    return employeeNum;
+                }
+            }
+            return null;
+        }
+
+        // Initialize all timesheets with proper error handling
+        function initializeAllTimesheets() {
+            try {
+                if (appState.debugMode) {
+                    console.log('Initializing all timesheets...');
+                }
+                
+                for (let i = 1; i <= 7; i++) {
+                    if (!appState.employeeUniqueIds[i]) {
+                        appState.employeeUniqueIds[i] = generateUniqueId(employeeNames[i]);
+                    }
+                    
+                    if (!appState.allTimesheets[i]) {
+                        appState.allTimesheets[i] = {
+                            data: {},
+                            hourlyRate: 25.00,
+                            overtimeRate: 1.5,
+                            overtimeThreshold: 40,
+                            startDate: null,
+                            employeeName: employeeNames[i],
+                            uniqueId: appState.employeeUniqueIds[i]
+                        };
+                    }
+                }
+                
+                // Set current timesheet data reference
+                appState.timesheetData = appState.allTimesheets[appState.currentTimesheetNumber].data;
+                
+                if (appState.debugMode) {
+                    console.log('All timesheets initialized successfully');
+                }
+                return true;
+            } catch (error) {
+                showError('Failed to initialize timesheets: ' + error.message);
+                return false;
+            }
+        }
+
+        // Enhanced date management
+        function setCurrentWeek() {
+            try {
+                const today = new Date();
+                const startOfWeek = new Date(today);
+                startOfWeek.setDate(today.getDate() - today.getDay());
+                
+                appState.currentStartDate = startOfWeek;
+                
+                if (!safeSetValue('startDate', startOfWeek.toISOString().split('T')[0])) {
+                    console.warn('Could not set start date input');
+                }
+                
+                if (appState.allTimesheets[appState.currentTimesheetNumber]) {
+                    appState.allTimesheets[appState.currentTimesheetNumber].startDate = appState.currentStartDate;
+                }
+                
+                regenerateTimesheet();
+                showSuccess('Set to current week');
+            } catch (error) {
+                showError('Error setting current week: ' + error.message);
+            }
+        }
+
+        function setNextWeek() {
+            try {
+                const today = new Date();
+                const nextWeek = new Date(today);
+                nextWeek.setDate(today.getDate() - today.getDay() + 7);
+                
+                appState.currentStartDate = nextWeek;
+                
+                if (!safeSetValue('startDate', nextWeek.toISOString().split('T')[0])) {
+                    console.warn('Could not set start date input');
+                }
+                
+                if (appState.allTimesheets[appState.currentTimesheetNumber]) {
+                    appState.allTimesheets[appState.currentTimesheetNumber].startDate = appState.currentStartDate;
+                }
+                
+                regenerateTimesheet();
+                showSuccess('Set to next week');
+            } catch (error) {
+                showError('Error setting next week: ' + error.message);
+            }
+        }
+
+        function regenerateTimesheet() {
+            try {
+                const startDateValue = safeGetValue('startDate');
+                if (!startDateValue) {
+                    showError('Please select a start date');
+                    return;
+                }
+                
+                appState.currentStartDate = new Date(startDateValue);
+                
+                if (isNaN(appState.currentStartDate.getTime())) {
+                    showError('Invalid date selected');
+                    return;
+                }
+                
+                if (appState.allTimesheets[appState.currentTimesheetNumber]) {
+                    appState.allTimesheets[appState.currentTimesheetNumber].startDate = appState.currentStartDate;
+                }
+                
+                clearTimesheet();
+                generateTimesheet();
+                calculateTotals();
+                showSuccess('Timesheet updated successfully');
+            } catch (error) {
+                showError('Error updating timesheet: ' + error.message);
+            }
+        }
+
+        // Employee switching with proper sequencing
+        function switchTimesheet(sheetNumber) {
+            if (!appState.isInitialized) {
+                showError('Application not fully initialized. Please wait and try again.');
+                return;
+            }
+
+            if (sheetNumber < 1 || sheetNumber > 7) {
+                showError('Invalid employee number. Please select a valid employee.');
+                return;
+            }
+            
+            try {
+                showLoading(true);
+                disableButtons(true);
+                
+                // Save current data before switching
+                saveCurrentTimesheetData();
+                
+                // Ensure employeeUniqueIds is initialized
+                if (!appState.employeeUniqueIds[sheetNumber]) {
+                    appState.employeeUniqueIds[sheetNumber] = generateUniqueId(employeeNames[sheetNumber]);
+                }
+                
+                const employeeId = appState.employeeUniqueIds[sheetNumber];
+                const baseUrl = window.location.href.split('?')[0];
+                const newUrl = `${baseUrl}?id=${employeeId}`;
+                
+                if (appState.debugMode) {
+                    console.log(`Switching to employee ${sheetNumber} (${employeeNames[sheetNumber]})`);
+                }
+                
+                // Use a small delay to ensure UI feedback is visible
+                setTimeout(() => {
+                    window.location.href = newUrl;
+                }, 100);
+                
+            } catch (error) {
+                showError('Error switching employee: ' + error.message);
+                showLoading(false);
+                disableButtons(false);
+            }
+        }
+
+        // Enhanced timesheet generation with better error handling
+        function generateTimesheet() {
+            try {
+                const tbody = safeGetElement('timesheetBody');
+                if (!tbody) {
+                    throw new Error('Timesheet body element not found');
+                }
+                
+                const startDate = appState.currentStartDate || new Date();
+                
+                if (appState.debugMode) {
+                    console.log('Generating timesheet starting from:', startDate.toDateString());
+                }
+                
+                for (let i = 0; i < 14; i++) {
+                    const currentDate = new Date(startDate);
+                    currentDate.setDate(startDate.getDate() + i);
+                    const dateString = currentDate.toISOString().split('T')[0];
+                    
+                    if (!appState.timesheetData[dateString]) {
+                        appState.timesheetData[dateString] = {
+                            startTime: '', lunchStart: '', lunchEnd: '', endTime: '',
+                            sickHours: 0, vacationHours: 0, unpaidHours: 0
+                        };
+                    }
+                    
+                    createRow(dateString, currentDate);
+                }
+                
+                if (appState.debugMode) {
+                    console.log('Timesheet generation completed');
+                }
+            } catch (error) {
+                showError('Error generating timesheet: ' + error.message);
+            }
+        }
+
+        function createRow(dateString, date) {
+            try {
+                const tbody = safeGetElement('timesheetBody');
+                if (!tbody) return;
+                
+                const row = document.createElement('tr');
+                
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const dayName = dayNames[date.getDay()];
+                const formattedDate = `${dayName} ${date.getMonth() + 1}/${date.getDate()}`;
+                
+                row.innerHTML = `
+                    <td class="date-cell">${formattedDate}</td>
+                    <td><input type="text" class="time-input" placeholder="9:00" data-field="startTime" data-date="${dateString}" maxlength="5"></td>
+                    <td><input type="text" class="time-input" placeholder="12:00" data-field="lunchStart" data-date="${dateString}" maxlength="5"></td>
+                    <td><input type="text" class="time-input" placeholder="13:00" data-field="lunchEnd" data-date="${dateString}" maxlength="5"></td>
+                    <td><input type="text" class="time-input" placeholder="17:00" data-field="endTime" data-date="${dateString}" maxlength="5"></td>
+                    <td>
+                        <button class="clickable-category sick" onclick="toggleHoursSelector(this, '${dateString}', 'sick')">Sick</button>
+                        <div class="hours-selector" id="sick-${dateString}">
+                            <div class="hours-input-group">
+                                <label>Hours:</label>
+                                <input type="number" step="0.25" min="0" max="24" data-field="sickHours" data-date="${dateString}" placeholder="0">
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="clickable-category vacation" onclick="toggleHoursSelector(this, '${dateString}', 'vacation')">Vacation</button>
+                        <div class="hours-selector" id="vacation-${dateString}">
+                            <div class="hours-input-group">
+                                <label>Hours:</label>
+                                <input type="number" step="0.25" min="0" max="24" data-field="vacationHours" data-date="${dateString}" placeholder="0">
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="clickable-category unpaid" onclick="toggleHoursSelector(this, '${dateString}', 'unpaid')">Unpaid</button>
+                        <div class="hours-selector" id="unpaid-${dateString}">
+                            <div class="hours-input-group">
+                                <label>Hours:</label>
+                                <input type="number" step="0.25" min="0" max="24" data-field="unpaidHours" data-date="${dateString}" placeholder="0">
+                            </div>
+                        </div>
+                    </td>
+                    <td class="regular-hours" id="regular-${dateString}">0.00</td>
+                    <td class="overtime-hours" id="overtime-${dateString}">0.00</td>
+                    <td class="total-hours" id="total-${dateString}">0.00</td>
+                `;
+                
+                tbody.appendChild(row);
+                
+                // Add event listeners with error handling
+                const inputs = row.querySelectorAll('input');
+                inputs.forEach(input => {
+                    try {
+                        if (input.classList.contains('time-input')) {
+                            input.addEventListener('input', function() {
+                                formatTimeInput(this);
+                            });
+                            
+                            input.addEventListener('blur', function() {
+                                handleTimeInputChange(this);
+                            });
+                        } else {
+                            input.addEventListener('input', function() {
+                                handleNumberInputChange(this);
+                            });
+                        }
+                        
+                        // Load existing data
+                        loadInputData(input, dateString);
+                    } catch (error) {
+                        console.error('Error adding event listener to input:', error);
+                    }
+                });
+            } catch (error) {
+                console.error('Error creating row:', error);
+            }
+        }
+
+        // Enhanced earnings calculation with validation
+        function calculateEarnings(regularHours, overtimeHours, sickHours, vacationHours, hourlyRate, overtimeMultiplier) {
+            // Ensure all inputs are valid numbers
+            const validRegular = Math.max(0, parseFloat(regularHours) || 0);
+            const validOvertime = Math.max(0, parseFloat(overtimeHours) || 0);
+            const validSick = Math.max(0, parseFloat(sickHours) || 0);
+            const validVacation = Math.max(0, parseFloat(vacationHours) || 0);
+            const validRate = Math.max(0, parseFloat(hourlyRate) || 0);
+            const validMultiplier = Math.max(1, parseFloat(overtimeMultiplier) || 1.5);
+            
+            const regularPay = validRegular * validRate;
+            const overtimePay = validOvertime * validRate * validMultiplier;
+            const sickPay = validSick * validRate;
+            const vacationPay = validVacation * validRate;
+            
+            return regularPay + overtimePay + sickPay + vacationPay;
+        }
+
+        // Safe calculation functions with element validation
+        function calculateTotals() {
+            try {
+                if (appState.debugMode) {
+                    console.log('Calculating totals...');
+                }
+                
+                let totalRegular = 0;
+                let totalOvertime = 0;
+                let totalSick = 0;
+                let totalVacation = 0;
+                let totalUnpaid = 0;
+                
+                const overtimeThreshold = parseFloat(safeGetValue('overtimeThreshold')) || 40;
+                const overtimeRate = parseFloat(safeGetValue('overtimeRate')) || 1.5;
+                
+                Object.keys(appState.timesheetData).forEach(date => {
+                    try {
+                        const data = appState.timesheetData[date] || {};
+                        
+                        // Calculate regular work hours
+                        let workMinutes = 0;
+                        
+                        if (data.startTime && data.endTime) {
+                            const startMinutes = timeToMinutes(data.startTime);
+                            const endMinutes = timeToMinutes(data.endTime);
+                            let totalMinutes = endMinutes - startMinutes;
+                            
+                            // Handle overnight shifts
+                            if (totalMinutes < 0) {
+                                totalMinutes += 24 * 60; // Add 24 hours
+                            }
+                            
+                            // Subtract lunch break
+                            if (data.lunchStart && data.lunchEnd) {
+                                const lunchStartMinutes = timeToMinutes(data.lunchStart);
+                                const lunchEndMinutes = timeToMinutes(data.lunchEnd);
+                                let lunchDuration = lunchEndMinutes - lunchStartMinutes;
+                                
+                                // Handle lunch break spanning midnight
+                                if (lunchDuration < 0) {
+                                    lunchDuration += 24 * 60;
+                                }
+                                
+                                totalMinutes -= lunchDuration;
+                            }
+                            
+                            workMinutes = Math.max(0, totalMinutes);
+                        }
+                        
+                        let regularHours = minutesToHours(workMinutes);
+                        let overtimeHours = 0;
+                        
+                        // Calculate daily overtime if threshold is 8 hours per day
+                        if (overtimeThreshold === 8 && regularHours > 8) {
+                            overtimeHours = regularHours - 8;
+                            regularHours = 8;
+                        }
+                        
+                        const sickHours = Math.max(0, parseFloat(data.sickHours) || 0);
+                        const vacationHours = Math.max(0, parseFloat(data.vacationHours) || 0);
+                        const unpaidHours = Math.max(0, parseFloat(data.unpaidHours) || 0);
+                        
+                        // Update individual day totals with safe element access
+                        const regularCell = safeGetElement(`regular-${date}`);
+                        const overtimeCell = safeGetElement(`overtime-${date}`);
+                        const totalCell = safeGetElement(`total-${date}`);
+                        
+                        if (regularCell) regularCell.textContent = regularHours.toFixed(2);
+                        if (overtimeCell) overtimeCell.textContent = overtimeHours.toFixed(2);
+                        if (totalCell) {
+                            const dayTotal = regularHours + overtimeHours + sickHours + vacationHours;
+                            totalCell.textContent = dayTotal.toFixed(2);
+                        }
+                        
+                        // Add to totals
+                        totalRegular += regularHours;
+                        totalOvertime += overtimeHours;
+                        totalSick += sickHours;
+                        totalVacation += vacationHours;
+                        totalUnpaid += unpaidHours;
+                    } catch (dateError) {
+                        console.error(`Error calculating totals for date ${date}:`, dateError);
+                    }
+                });
+                
+                // Calculate weekly overtime if threshold is 40 hours per week
+                if (overtimeThreshold === 40 && totalRegular > 40) {
+                    const weeklyOvertime = totalRegular - 40;
+                    totalOvertime += weeklyOvertime;
+                    totalRegular = 40;
+                }
+                
+                // Update summary cards with safe element access
+                const summaryUpdates = [
+                    ['regularHours', totalRegular.toFixed(2)],
+                    ['overtimeHours', totalOvertime.toFixed(2)],
+                    ['sickHours', totalSick.toFixed(2)],
+                    ['vacationHours', totalVacation.toFixed(2)],
+                    ['unpaidHours', totalUnpaid.toFixed(2)]
+                ];
+                
+                summaryUpdates.forEach(([elementId, value]) => {
+                    const element = safeGetElement(elementId);
+                    if (element) element.textContent = value;
+                });
+                
+                // Calculate earnings with validation
+                const hourlyRate = Math.max(0, parseFloat(safeGetValue('hourlyRate')) || 0);
+                const totalEarnings = calculateEarnings(totalRegular, totalOvertime, totalSick, totalVacation, hourlyRate, overtimeRate);
+                
+                const earningsElement = safeGetElement('totalEarnings');
+                if (earningsElement) {
+                    earningsElement.textContent = `${totalEarnings.toFixed(2)}`;
+                }
+                
+                if (appState.debugMode) {
+                    console.log('Totals calculated successfully');
+                }
+                
+            } catch (error) {
+                console.error('Error calculating totals:', error);
+                showError('Error calculating totals. Please check your input data.');
+            }
+        }
+
+        // Helper functions with better error handling
+        function timeToMinutes(timeStr) {
+            try {
+                if (!timeStr) return 0;
+                
+                const parts = timeStr.split(':');
+                if (parts.length !== 2) return 0;
+                
+                const hours = parseInt(parts[0]) || 0;
+                const minutes = parseInt(parts[1]) || 0;
+                
+                if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+                    return 0;
+                }
+                
+                return hours * 60 + minutes;
+            } catch (error) {
+                console.error('Error converting time to minutes:', error);
+                return 0;
+            }
+        }
+
+        function minutesToHours(minutes) {
+            try {
+                if (typeof minutes !== 'number' || minutes < 0) return 0;
+                return Math.round((minutes / 60) * 100) / 100;
+            } catch (error) {
+                console.error('Error converting minutes to hours:', error);
+                return 0;
+            }
+        }
+
+        // Event handlers with proper error handling
+        function handleTimeInputChange(input) {
+            try {
+                const field = input.getAttribute('data-field');
+                const date = input.getAttribute('data-date');
+                const value = input.value;
+                
+                if (field && date && appState.timesheetData[date]) {
+                    appState.timesheetData[date][field] = value;
+                    calculateTotals();
+                    showAutoSaveIndicator();
+                }
+            } catch (error) {
+                console.error('Error handling time input change:', error);
+            }
+        }
+
+        function handleNumberInputChange(input) {
+            try {
+                const field = input.getAttribute('data-field');
+                const date = input.getAttribute('data-date');
+                const value = input.value;
+                
+                if (field && date && appState.timesheetData[date]) {
+                    if (field.includes('Hours')) {
+                        appState.timesheetData[date][field] = parseFloat(value) || 0;
+                    } else {
+                        appState.timesheetData[date][field] = value;
+                    }
+                    calculateTotals();
+                    showAutoSaveIndicator();
+                }
+            } catch (error) {
+                console.error('Error handling number input change:', error);
+            }
+        }
+
+        function loadInputData(input, dateString) {
+            try {
+                const field = input.getAttribute('data-field');
+                if (field && appState.timesheetData[dateString]) {
+                    const value = appState.timesheetData[dateString][field];
+                    if (value !== undefined && value !== null) {
+                        input.value = value;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading input data:', error);
+            }
+        }
+
+        function formatTimeInput(input) {
+            try {
+                let value = input.value.replace(/[^\d:]/g, '');
+                
+                // Auto-format as user types
+                if (value.length === 1 || value.length === 2) {
+                    const hours = parseInt(value);
+                    if (hours > 23) {
+                        value = '23';
+                    }
+                    if (value.length === 2 && !value.includes(':')) {
+                        value = value + ':';
+                    }
+                } else if (value.length === 4 && value.indexOf(':') === 1) {
+                    const parts = value.split(':');
+                    const minutes = parseInt(parts[1]);
+                    if (minutes > 59) {
+                        value = parts[0] + ':59';
+                    }
+                } else if (value.length === 5) {
+                    const parts = value.split(':');
+                    if (parts.length === 2) {
+                        let hours = parseInt(parts[0]) || 0;
+                        let minutes = parseInt(parts[1]) || 0;
+                        
+                        if (hours > 23) hours = 23;
+                        if (minutes > 59) minutes = 59;
+                        
+                        value = String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0');
+                    }
+                }
+                
+                input.value = value;
+                
+                // Validate time format
+                const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+                if (value && !timeRegex.test(value)) {
+                    input.classList.add('error');
+                    input.title = 'Please enter a valid time (HH:MM)';
+                } else {
+                    input.classList.remove('error');
+                    input.title = '';
+                }
+            } catch (error) {
+                console.error('Error formatting time input:', error);
+            }
+        }
+
+        // Additional helper functions
+        function toggleHoursSelector(button, date, type) {
+            try {
+                if (!button || !date || !type) {
+                    throw new Error('Invalid parameters for hours selector');
+                }
+                
+                const selector = safeGetElement(`${type}-${date}`);
+                if (!selector) {
+                    console.warn(`Hours selector not found: ${type}-${date}`);
+                    return;
+                }
+                
+                const isActive = selector.classList.contains('active');
+                
+                // Close all other selectors
+                document.querySelectorAll('.hours-selector.active').forEach(sel => {
+                    if (sel !== selector) {
+                        sel.classList.remove('active');
+                    }
+                });
+                
+                // Toggle current selector
+                if (isActive) {
+                    selector.classList.remove('active');
+                } else {
+                    selector.classList.add('active');
+                }
+            } catch (error) {
+                showError('Error toggling hours selector: ' + error.message);
+            }
+        }
+
+        function saveCurrentTimesheetData() {
+            try {
+                if (appState.allTimesheets[appState.currentTimesheetNumber]) {
+                    appState.allTimesheets[appState.currentTimesheetNumber].data = { ...appState.timesheetData };
+                    appState.allTimesheets[appState.currentTimesheetNumber].hourlyRate = parseFloat(safeGetValue('hourlyRate')) || 0;
+                    appState.allTimesheets[appState.currentTimesheetNumber].overtimeRate = parseFloat(safeGetValue('overtimeRate')) || 1.5;
+                    appState.allTimesheets[appState.currentTimesheetNumber].overtimeThreshold = parseFloat(safeGetValue('overtimeThreshold')) || 40;
+                    appState.allTimesheets[appState.currentTimesheetNumber].startDate = appState.currentStartDate;
+                }
+            } catch (error) {
+                console.error('Error saving current timesheet data:', error);
+            }
+        }
+
+        function updateActiveTab() {
+            try {
+                document.querySelectorAll('.timesheet-tab').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                
+                const activeTab = document.querySelector(`.timesheet-tab[data-sheet="${appState.currentTimesheetNumber}"]`);
+                if (activeTab) {
+                    activeTab.classList.add('active');
+                }
+                
+                const nameElement = safeGetElement('currentTimesheetName');
+                if (nameElement) {
+                    nameElement.textContent = employeeNames[appState.currentTimesheetNumber] || 'Unknown';
+                }
+            } catch (error) {
+                console.error('Error updating active tab:', error);
+            }
+        }
+
+        function clearTimesheet() {
+            try {
+                const tbody = safeGetElement('timesheetBody');
+                if (tbody) {
+                    tbody.innerHTML = '';
+                }
+            } catch (error) {
+                console.error('Error clearing timesheet:', error);
+            }
+        }
+
+        function updateUniqueUrl() {
+            try {
+                const currentUrl = window.location.href.split('?')[0];
+                const employeeName = employeeNames[appState.currentTimesheetNumber];
+                const uniqueUrl = `${currentUrl}?id=${appState.uniqueId}`;
+                
+                const urlInput = safeGetElement('uniqueUrl');
+                const urlDisplay = safeGetElement('urlDisplay');
+                
+                if (urlInput) {
+                    urlInput.value = uniqueUrl;
+                }
+                if (urlDisplay) {
+                    urlDisplay.style.display = 'block';
+                }
+                
+                const headerElement = document.querySelector('.url-display h4');
+                if (headerElement && employeeName) {
+                    headerElement.textContent = `${employeeName}'s Secure Link:`;
+                }
+            } catch (error) {
+                console.error('Error updating unique URL:', error);
+            }
+        }
+
+        function showAutoSaveIndicator() {
+            try {
+                const indicator = safeGetElement('autoSaveIndicator');
+                if (indicator) {
+                    indicator.classList.add('show');
+                    setTimeout(() => {
+                        indicator.classList.remove('show');
+                    }, 2000);
+                }
+                saveCurrentTimesheetData();
+            } catch (error) {
+                console.error('Error showing auto-save indicator:', error);
+            }
+        }
+
+        // Data loading and saving functions
+        function loadData(id) {
+            try {
+                if (appState.debugMode) {
+                    console.log('Loading data for ID:', id);
+                }
+                
+                showLoading(true);
+                
+                const employeeNum = findEmployeeByUniqueId(id);
+                if (!employeeNum) {
+                    throw new Error('Employee not found for the provided ID');
+                }
+                
+                appState.currentTimesheetNumber = employeeNum;
+                
+                if (!initializeAllTimesheets()) {
+                    throw new Error('Failed to initialize timesheets');
+                }
+                
+                // Try to load saved data
+                const storageKey = `timesheet_${id}`;
+                const savedData = safeGetFromStorage(storageKey);
+                
+                if (savedData && savedData.employeeData) {
+                    appState.allTimesheets[appState.currentTimesheetNumber] = savedData.employeeData;
+                    
+                    // Load settings with validation
+                    safeSetValue('hourlyRate', savedData.employeeData.hourlyRate || 25);
+                    safeSetValue('overtimeRate', savedData.employeeData.overtimeRate || 1.5);
+                    safeSetValue('overtimeThreshold', savedData.employeeData.overtimeThreshold || 40);
+                    
+                    if (appState.debugMode) {
+                        console.log('Loaded saved data for', employeeNames[employeeNum]);
+                    }
+                } else {
+                    if (appState.debugMode) {
+                        console.log('No saved data found, using defaults for', employeeNames[employeeNum]);
+                    }
+                }
+                
+                appState.timesheetData = appState.allTimesheets[appState.currentTimesheetNumber].data;
+                
+                // Generate timesheet BEFORE calculating totals
+                generateTimesheet();
+                calculateTotals();
+                
+            } catch (error) {
+                showError('Error loading employee data: ' + error.message);
+                console.error('Data loading error:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function saveData() {
+            try {
+                disableButtons(true);
+                showLoading(true);
+                
+                if (!appState.isInitialized) {
+                    throw new Error('Application not properly initialized');
+                }
+                
+                saveCurrentTimesheetData();
+                
+                const employeeName = employeeNames[appState.currentTimesheetNumber];
+                if (!employeeName) {
+                    throw new Error('Invalid employee selected');
+                }
+                
+                const dataToSave = {
+                    employeeData: appState.allTimesheets[appState.currentTimesheetNumber],
+                    employeeName: employeeName,
+                    uniqueId: appState.uniqueId,
+                    lastSaved: new Date().toISOString(),
+                    version: '2.0'
+                };
+                
+                const storageKey = `timesheet_${appState.uniqueId}`;
+                safeSetToStorage(storageKey, dataToSave);
+                
+                showSuccess(`${employeeName}'s timesheet saved successfully!`);
+                console.log(`Saved ${employeeName}'s timesheet data`);
+                
+            } catch (error) {
+                showError('Error saving timesheet: ' + error.message);
+            } finally {
+                showLoading(false);
+                disableButtons(false);
+            }
+        }
+
+        // PDF and CSV generation functions (simplified for brevity)
+        function generatePDF() {
+            try {
+                disableButtons(true);
+                showLoading(true);
+                
+                saveCurrentTimesheetData();
+                
+                if (typeof window.jspdf === 'undefined') {
+                    throw new Error('PDF library not loaded. Please refresh the page and try again.');
+                }
+                
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                const employeeName = employeeNames[appState.currentTimesheetNumber];
+                if (!employeeName) {
+                    throw new Error('Invalid employee selected');
+                }
+                
+                doc.setFontSize(18);
+                doc.text(`${employeeName} - Timesheet Report`, 20, 20);
+                
+                doc.save(`${employeeName.toLowerCase().replace(/[^a-z]/g, '')}-timesheet.pdf`);
+                showSuccess('PDF exported successfully!');
+                
+            } catch (error) {
+                showError('Error generating PDF: ' + error.message);
+            } finally {
+                showLoading(false);
+                disableButtons(false);
+            }
+        }
+
+        function generateCSV() {
+            try {
+                disableButtons(true);
+                showLoading(true);
+                
+                saveCurrentTimesheetData();
+                
+                const employeeName = employeeNames[appState.currentTimesheetNumber];
+                if (!employeeName) {
+                    throw new Error('Invalid employee selected');
+                }
+                
+                let csvContent = "Date,Start Time,Lunch Start,Lunch End,End Time,Regular Hours,Overtime Hours,Sick Hours,Vacation Hours,Unpaid Hours,Total Hours\n";
+                
+                const sortedDates = Object.keys(appState.timesheetData).sort();
+                sortedDates.forEach(date => {
+                    const data = appState.timesheetData[date] || {};
+                    const regularCell = safeGetElement(`regular-${date}`);
+                    const overtimeCell = safeGetElement(`overtime-${date}`);
+                    const totalCell = safeGetElement(`total-${date}`);
+                    
+                    const regularHours = regularCell ? regularCell.textContent : '0.00';
+                    const overtimeHours = overtimeCell ? overtimeCell.textContent : '0.00';
+                    const totalHours = totalCell ? totalCell.textContent : '0.00';
+                    
+                    const row = [
+                        date,
+                        data.startTime || '',
+                        data.lunchStart || '',
+                        data.lunchEnd || '',
+                        data.endTime || '',
+                        regularHours,
+                        overtimeHours,
+                        (data.sickHours || 0).toFixed(2),
+                        (data.vacationHours || 0).toFixed(2),
+                        (data.unpaidHours || 0).toFixed(2),
+                        totalHours
+                    ].map(field => `"${String(field).replace(/"/g, '""')}"`);
+                    
+                    csvContent += row.join(',') + '\n';
+                });
+                
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${employeeName.toLowerCase().replace(/[^a-z]/g, '')}-timesheet.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                showSuccess('CSV exported successfully!');
+                
+            } catch (error) {
+                showError('Error generating CSV: ' + error.message);
+            } finally {
+                showLoading(false);
+                disableButtons(false);
+            }
+        }
+
+        function clearAllData() {
+            try {
+                if (!confirm('Are you sure you want to clear all timesheet data? This action cannot be undone.')) {
+                    return;
+                }
+                
+                disableButtons(true);
+                showLoading(true);
+                
+                // Clear the timesheetData object
+                Object.keys(appState.timesheetData).forEach(date => {
+                    appState.timesheetData[date] = {
+                        startTime: '', lunchStart: '', lunchEnd: '', endTime: '',
+                        sickHours: 0, vacationHours: 0, unpaidHours: 0
+                    };
+                });
+                
+                // Clear all input fields with error handling
+                document.querySelectorAll('.time-input').forEach(input => {
+                    input.value = '';
+                    input.classList.remove('error');
+                    input.style.borderColor = '#dee2e6';
+                });
+                
+                document.querySelectorAll('input[type="number"]').forEach(input => {
+                    const field = input.getAttribute('data-field');
+                    if (field && field.includes('Hours')) {
+                        input.value = '';
+                    }
+                });
+                
+                // Close any open hour selectors
+                document.querySelectorAll('.hours-selector.active').forEach(selector => {
+                    selector.classList.remove('active');
+                });
+                
+                calculateTotals();
+                showAutoSaveIndicator();
+                showSuccess('All timesheet data has been cleared.');
+                
+            } catch (error) {
+                showError('Error clearing data: ' + error.message);
+            } finally {
+                showLoading(false);
+                disableButtons(false);
+            }
+        }
+
+        // Enhanced initialization functions
+        function redirectToEmployeeTimesheet(employeeNum) {
+            try {
+                if (employeeNum < 1 || employeeNum > 7) {
+                    throw new Error('Invalid employee number');
+                }
+                
+                const employeeId = appState.employeeUniqueIds[employeeNum];
+                if (!employeeId) {
+                    throw new Error('Employee ID not found');
+                }
+                
+                const baseUrl = window.location.href.split('?')[0];
+                const newUrl = `${baseUrl}?id=${employeeId}`;
+                
+                window.history.replaceState({}, '', newUrl);
+                appState.uniqueId = employeeId;
+                updateUniqueUrl();
+            } catch (error) {
+                showError('Error redirecting to employee timesheet: ' + error.message);
+            }
+        }
+
+        function initializeTimesheet() {
+            try {
+                if (appState.debugMode) {
+                    console.log('Starting timesheet initialization...');
+                }
+                
+                showLoading(true);
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                const id = urlParams.get('id');
+                const sheetNum = parseInt(urlParams.get('sheet')) || 1;
+                
+                // Validate sheet number
+                if (sheetNum < 1 || sheetNum > 7) {
+                    console.warn('Invalid sheet number in URL, using default');
+                }
+                
+                if (id) {
+                    if (appState.debugMode) {
+                        console.log('Initializing with ID from URL:', id);
+                    }
+                    
+                    // Initialize with ID from URL
+                    const foundEmployee = findEmployeeByUniqueId(id);
+                    if (foundEmployee) {
+                        appState.currentTimesheetNumber = foundEmployee;
+                        appState.uniqueId = id;
+                        loadData(id);
+                    } else {
+                        console.warn('Employee ID not found, initializing defaults');
+                        appState.currentTimesheetNumber = 1;
+                        if (!initializeAllTimesheets()) {
+                            throw new Error('Failed to initialize timesheets');
+                        }
+                        redirectToEmployeeTimesheet(1);
+                        return;
+                    }
+                } else {
+                    if (appState.debugMode) {
+                        console.log('Initializing without ID, using sheet number:', sheetNum);
+                    }
+                    
+                    // Initialize without ID
+                    appState.currentTimesheetNumber = Math.max(1, Math.min(7, sheetNum));
+                    if (!initializeAllTimesheets()) {
+                        throw new Error('Failed to initialize timesheets');
+                    }
+                    redirectToEmployeeTimesheet(appState.currentTimesheetNumber);
+                    return;
+                }
+                
+                setCurrentWeek();
+                updateActiveTab();
+                updateUniqueUrl();
+                
+                appState.isInitialized = true;
+                
+                if (appState.debugMode) {
+                    console.log('Timesheet application initialized successfully');
+                }
+                
+            } catch (error) {
+                showError('Failed to initialize timesheet: ' + error.message);
+                console.error('Initialization error:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function initializeEventListeners() {
+            try {
+                if (appState.debugMode) {
+                    console.log('Initializing event listeners...');
+                }
+                
+                // Settings event listeners with error handling
+                const settingsInputs = [
+                    { id: 'hourlyRate', handler: calculateTotals },
+                    { id: 'overtimeRate', handler: calculateTotals },
+                    { id: 'overtimeThreshold', handler: calculateTotals },
+                    { id: 'timeFormat', handler: handleTimeFormatChange },
+                    { id: 'roundingRule', handler: handleRoundingRuleChange }
+                ];
+                
+                settingsInputs.forEach(({ id, handler }) => {
+                    const element = safeGetElement(id);
+                    if (element && handler) {
+                        element.addEventListener('input', handler);
+                        element.addEventListener('change', handler);
+                    }
+                });
+                
+                // URL input selection for easy copying
+                const urlInput = safeGetElement('uniqueUrl');
+                if (urlInput) {
+                    urlInput.addEventListener('click', function() {
+                        this.select();
+                        try {
+                            document.execCommand('copy');
+                            showSuccess('URL copied to clipboard!');
+                        } catch (copyError) {
+                            console.warn('Could not copy URL automatically');
+                        }
+                    });
+                }
+                
+                // Keyboard shortcuts
+                document.addEventListener('keydown', function(e) {
+                    try {
+                        // Ctrl+S to save
+                        if (e.ctrlKey && e.key === 's') {
+                            e.preventDefault();
+                            saveData();
+                        }
+                        // Ctrl+E to export PDF
+                        if (e.ctrlKey && e.key === 'e') {
+                            e.preventDefault();
+                            generatePDF();
+                        }
+                    } catch (error) {
+                        console.error('Error handling keyboard shortcut:', error);
+                    }
+                });
+                
+                if (appState.debugMode) {
+                    console.log('Event listeners initialized successfully');
+                }
+                
+            } catch (error) {
+                console.error('Error initializing event listeners:', error);
+            }
+        }
+
+        function handleTimeFormatChange() {
+            try {
+                const format = safeGetValue('timeFormat');
+                if (appState.debugMode) {
+                    console.log('Time format changed to:', format);
+                }
+                calculateTotals();
+            } catch (error) {
+                console.error('Error handling time format change:', error);
+            }
+        }
+
+        function handleRoundingRuleChange() {
+            try {
+                const rounding = safeGetValue('roundingRule');
+                if (appState.debugMode) {
+                    console.log('Rounding rule changed to:', rounding);
+                }
+                calculateTotals();
+            } catch (error) {
+                console.error('Error handling rounding rule change:', error);
+            }
+        }
+
+        // Enhanced initialization with retry mechanism
+        function initializeWithRetry(maxAttempts = 3, currentAttempt = 1) {
+            try {
+                if (appState.debugMode) {
+                    console.log(`Initialization attempt ${currentAttempt}/${maxAttempts}`);
+                }
+                
+                // Check if required elements exist
+                const requiredElements = ['timesheetBody', 'hourlyRate', 'currentTimesheetName'];
+                const missingElements = requiredElements.filter(id => !document.getElementById(id));
+                
+                if (missingElements.length > 0) {
+                    throw new Error(`Required elements missing: ${missingElements.join(', ')}`);
+                }
+                
+                initializeTimesheet();
+                initializeEventListeners();
+                
+                if (appState.debugMode) {
+                    console.log('Timesheet application initialized successfully');
+                }
+                
+            } catch (error) {
+                console.error(`Initialization attempt ${currentAttempt} failed:`, error);
+                
+                if (currentAttempt < maxAttempts) {
+                    console.log(`Retrying in 1 second... (attempt ${currentAttempt + 1}/${maxAttempts})`);
+                    setTimeout(() => {
+                        initializeWithRetry(maxAttempts, currentAttempt + 1);
+                    }, 1000);
+                } else {
+                    showError('Failed to initialize timesheet after multiple attempts. Please refresh the page.');
+                    console.error('All initialization attempts failed');
+                }
+            }
+        }
+
+        // Global error handlers
+        window.addEventListener('error', function(e) {
+            console.error('Global error caught:', e.error);
+            if (appState.debugMode) {
+                showError('An unexpected error occurred. Check console for details.');
+            }
+        });
+
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('Unhandled promise rejection:', e.reason);
+            if (appState.debugMode) {
+                showError('An unexpected error occurred. Check console for details.');
+            }
+        });
+
+        // Helper functions for getting employee links
+        function getAllEmployeeLinks() {
+            const baseUrl = window.location.href.split('?')[0];
+            const employeeLinks = {};
+            
+            // Ensure all employees have unique IDs
+            for (let i = 1; i <= 7; i++) {
+                if (!appState.employeeUniqueIds[i]) {
+                    appState.employeeUniqueIds[i] = generateUniqueId(employeeNames[i]);
+                }
+                
+                const employeeName = employeeNames[i];
+                const uniqueId = appState.employeeUniqueIds[i];
+                const employeeUrl = `${baseUrl}?id=${uniqueId}`;
+                
+                employeeLinks[employeeName] = {
+                    name: employeeName,
+                    uniqueId: uniqueId,
+                    url: employeeUrl
+                };
+            }
+            
+            return employeeLinks;
+        }
+
+        function displayAllEmployeeLinks() {
+            const links = getAllEmployeeLinks();
+            console.log('=== EMPLOYEE TIMESHEET LINKS ===');
+            
+            Object.values(links).forEach(employee => {
+                console.log(`${employee.name}: ${employee.url}`);
+            });
+            
+            // Also return formatted text for easy copying
+            const linksList = Object.values(links)
+                .map(emp => `${emp.name}: ${emp.url}`)
+                .join('\n');
+            
+            // Try to copy to clipboard if possible
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(linksList).then(() => {
+                    console.log('Links copied to clipboard!');
+                    showSuccess('All employee links copied to clipboard!');
+                }).catch(() => {
+                    console.log('Could not copy to clipboard automatically');
+                });
+            }
+            
+            return linksList;
+        }
+
+        function exportEmployeeLinks() {
+            const links = getAllEmployeeLinks();
+            const linksList = Object.values(links)
+                .map(emp => `${emp.name}: ${emp.url}`)
+                .join('\n');
+            
+            const blob = new Blob([linksList], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'employee-timesheet-links.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showSuccess('Employee links exported to file!');
+        }
+
+        // Initialize when DOM is ready with enhanced error handling
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                initializeWithRetry();
+            });
+        } else {
+            // DOM already loaded
+            initializeWithRetry();
+        }
+
+        // Additional fallback initialization
+        window.addEventListener('load', function() {
+            if (!appState.isInitialized) {
+                console.log('Fallback initialization triggered');
+                initializeWithRetry();
+            }
+        });
+
+        // Expose functions globally for debugging and admin use
+        window.timesheetDebug = {
+            appState: appState,
+            reinitialize: () => initializeWithRetry(),
+            getAllLinks: getAllEmployeeLinks,
+            displayLinks: displayAllEmployeeLinks,
+            exportLinks: exportEmployeeLinks,
+            clearStorage: () => {
+                window.timesheetStorage = {};
+                try {
+                    if (typeof Storage !== 'undefined' && window.location.protocol !== 'file:') {
+                        Object.keys(sessionStorage).forEach(key => {
+                            if (key.startsWith('timesheet_')) {
+                                sessionStorage.removeItem(key);
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.warn('Could not clear session storage:', error);
+                }
+                showSuccess('Storage cleared');
+            },
+            exportState: () => {
+                console.log('Current application state:', JSON.stringify(appState, null, 2));
+                return appState;
+            },
+            enableDebug: () => {
+                appState.debugMode = true;
+                console.log('Debug mode enabled');
+            },
+            disableDebug: () => {
+                appState.debugMode = false;
+                console.log('Debug mode disabled');
+            }
+        };
+
+        // Make functions available globally for HTML onclick handlers
+        window.switchTimesheet = switchTimesheet;
+        window.setCurrentWeek = setCurrentWeek;
+        window.setNextWeek = setNextWeek;
+        window.regenerateTimesheet = regenerateTimesheet;
+        window.toggleHoursSelector = toggleHoursSelector;
+        window.saveData = saveData;
+        window.generatePDF = generatePDF;
+        window.generateCSV = generateCSV;
+        window.clearAllData = clearAllData;
+        window.displayAllEmployeeLinks = displayAllEmployeeLinks;
+        window.exportEmployeeLinks = exportEmployeeLinks;
+    </script>
+</body>
+</html>
